@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="UTF-8">
+  <title>File Transfer</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.6.1/socket.io.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body>
+  <main class="container px-4 py-16 md:px-32 mx-auto space-y-4">
+    <h1 class="text-4xl text-blue-500">File Transfer</h1>
+    <div class="">
+      <label for="file">Upload file</label>
+      <input type="file" id="file" name="file">
+    </div>
+    <div class="form-group">
+      <label for="peer">Select a peer:</label>
+      <select id="peer" name="peer" class="w-20"></select>
+    </div>
+    <div class="form-group">
+      <button id="upload-btn" class="bg-orange-600 px-4 py-2 text-white">Upload</button>
+    </div>
+    <div id="message"></div>
+
+  </main>
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+
+    const fileInput = document.getElementById('file');
+    const peerSelect = document.getElementById('peer');
+    const uploadButton = document.getElementById('upload-btn');
+    const messageDiv = document.getElementById('message');
+
+    // Listen for a list of available peers
+    socket.on('peers', peers => {
+      // Clear the select element
+      peerSelect.innerHTML = '';
+
+      // Add an option for each peer
+      peers.forEach(peer => {
+        const option = document.createElement('option');
+        option.value = peer;
+        option.innerText = peer;
+        peerSelect.appendChild(option);
+      });
+    });
+
+    // Request a list of available peers from the server
+    socket.emit('get peers');
+
+    // Listen for a confirmation message from the server
+    socket.on('file sent', data => {
+      messageDiv.innerText = `File ${data.filename} sent (${data.size} bytes)`;
+    });
+
+    // Listen for a file transfer from another peer
+    socket.on('file received', data => {
+      // Create a blob URL for the file data
+      const blob = new Blob([data.data], { type: 'application/octet-stream' });
+      const url = URL.createObjectURL(blob);
+
+      // Create a link to download the file
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = data.filename;
+      link.innerText = `Download ${data.filename} (${data.data.byteLength} bytes)`;
+      document.body.appendChild(link);
+    });
+
+    // Upload the selected file to the selected peer
+    if (uploadButton) {
+      uploadButton.addEventListener('click', () => {
+        const file = fileInput.files[0];
+        const peer = peerSelect.value;
+
+        if (!file) {
+          messageDiv.innerText = 'Please select a file';
+          return;
+        }
+
+        if (!peer) {
+          messageDiv.innerText = 'Please select a peer';
+          return;
+        }
+
+        // Read the file contents as a ArrayBuffer
+        const reader = new FileReader();
+        reader.onload = () => {
+          // Send the file data to the peer
+          socket.emit('file', {
+            filename: file.name,
+            size: file.size,
+            data: uint8Array.buffer,
+            peer: peer
+          });
+          messageDiv.innerText = `Uploading ${file.name} (${file.size} bytes) to ${peer}...`;
+        };
+
+        reader.readAsArrayBuffer(file);
+      });
+    }
+
+  </script>
+</body>
+
+</html>
