@@ -10,10 +10,20 @@ const browser = mdns.createBrowser(mdns.tcp('http'));
 
 browser.on('serviceUp', service => {
   console.log('Service up:', service.name, service.addresses);
+
+  // Send a list of available peers to all clients
+  const peers = Object.keys(io.sockets.sockets)
+    .filter(id => id !== socket.id);
+  io.emit('peers', peers);
 });
 
 browser.on('serviceDown', service => {
   console.log('Service down:', service.name, service.addresses);
+
+  // Send a list of available peers to all clients
+  const peers = Object.keys(io.sockets.sockets)
+    .filter(id => id !== socket.id);
+  io.emit('peers', peers);
 });
 
 browser.start();
@@ -24,6 +34,11 @@ const PORT = process.env.PORT || 5500;
 app.get('/', (req, res) => {
   req.socket.setNoDelay(true);
   res.sendFile(path.join(__dirname, 'index.html'));
+
+  // Send a list of available peers to all clients
+  const peers = Object.keys(io.sockets.sockets)
+    .filter(id => id !== socket.id);
+  io.emit('peers', peers);
 });
 
 // Serve static files from the "/public" directory
@@ -90,6 +105,11 @@ io.on('connection', socket => {
   // Handle disconnections
   socket.on('disconnect', () => {
     console.log('A user disconnected:', socket.id);
+
+    // Send a list of available peers to all clients
+    const peers = Object.keys(io.sockets.sockets)
+      .filter(id => id !== socket.id);
+    io.emit('peers', peers);
   });
 
 });
